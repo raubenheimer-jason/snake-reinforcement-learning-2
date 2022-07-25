@@ -1,0 +1,1 @@
+Reinforcement learning example with snake - adding information on snake body position to prevent snake trapping itsself
