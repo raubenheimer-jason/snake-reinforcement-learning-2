@@ -22,6 +22,13 @@ class Direction(Enum):
     DOWN = 4
 
 
+class Encode(Enum):
+    """ positio in the input channels, almost like RGB for image... """
+    SNAKE_HEAD_POS = int(0)
+    SNAKE_BODY_POS = int(1)
+    FOOD_POS = int(2)
+
+
 Point = namedtuple('Point', 'x, y')
 
 # rgb colors
@@ -64,7 +71,10 @@ class SnakeGameAI:
         x = random.randint(0, (self.w-BLOCK_SIZE)//BLOCK_SIZE)*BLOCK_SIZE
         y = random.randint(0, (self.h-BLOCK_SIZE)//BLOCK_SIZE)*BLOCK_SIZE
         self.food = Point(x, y)
+        # make sure not to place the food in the snake body
         if self.food in self.snake:
+            # if the food is in the snake call method again,
+            # try place food again until it is not in snake body
             self._place_food()
 
     def play_step(self, action):
@@ -90,7 +100,7 @@ class SnakeGameAI:
         # 4. place new food or just move
         if self.head == self.food:
             self.score += 1
-            reward = 10
+            reward = 100
             self._place_food()
         else:
             self.snake.pop()
@@ -113,26 +123,91 @@ class SnakeGameAI:
 
         return False
 
-    def get_flat_grid_snake(self):
-        """ converts the pixel xy into grid position xy """
+    # def is_trapped(self):
+    #     """ check if the snake is trapped
+    #         - returns True if it will eventually eat itsself given its current head and body position
+    #     """
+
+    #     for idx, pt in enumerate(self.snake):
+
+    #     if pt is None:
+    #         pt = self.head
+    #     # hits boundary
+    #     if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
+    #         return True
+    #     # hits itself
+    #     if pt in self.snake[1:]:
+    #         return True
+
+    #     return False
+
+    # def get_flat_grid_snake(self):
+    #     """ converts the pixel xy into grid position xy """
+
+    #     x = self.w//BLOCK_SIZE
+    #     y = self.h//BLOCK_SIZE
+
+    #     # print(f"x: {x}  y: {y}")
+
+    #     grid_snake = [[0 for _ in range(x)] for _ in range(y)]
+
+    #     for pt in self.snake:
+    #         grid_x = int(pt.x/BLOCK_SIZE)-1
+    #         grid_y = int(pt.y/BLOCK_SIZE)-1
+    #         # print(f"grid_x: {grid_x}  grid_y: {grid_y}")
+    #         grid_snake[grid_y][grid_x] = 1
+
+    #     # flatten grid_snake
+    #     flat_grid_snake = [x for xs in grid_snake for x in xs]
+
+    #     return flat_grid_snake
+
+    def get_grid_state(self):
+        """ Gets the state of all the "blocks" in the grid 
+            - snake body position
+            - food position
+            - snake head position?
+
+
+        """
 
         x = self.w//BLOCK_SIZE
         y = self.h//BLOCK_SIZE
 
         # print(f"x: {x}  y: {y}")
 
-        grid_snake = [[0 for _ in range(x)] for _ in range(y)]
+        # 2D array of grid
+        # each pos has array for the 3 channels (almost like RGB...)
+        # grid = [[[0, 0, 0] for _ in range(x)] for _ in range(y)]
+        grid = [[0 for _ in range(x)] for _ in range(y)]
 
-        for pt in self.snake:
-            grid_x = int(pt.x/BLOCK_SIZE)-1
-            grid_y = int(pt.y/BLOCK_SIZE)-1
-            # print(f"grid_x: {grid_x}  grid_y: {grid_y}")
-            grid_snake[grid_y][grid_x] = 1
+        # "encode" snake position in grid
+        for idx, pt in enumerate(self.snake):
+            snake_grid_x = int(pt.x/BLOCK_SIZE)-1
+            snake_grid_y = int(pt.y/BLOCK_SIZE)-1
 
-        # flatten grid_snake
-        flat_grid_snake = [x for xs in grid_snake for x in xs]
+            if idx == 0:
+                # this is the head, store different value?
+                # grid[snake_grid_y][snake_grid_x][Encode.SNAKE_HEAD_POS] = 1
+                # grid[snake_grid_y][snake_grid_x][0] = 1
+                grid[snake_grid_y][snake_grid_x] = 1
+            else:
+                # grid[snake_grid_y][snake_grid_x][Encode.SNAKE_BODY_POS] = 1
+                # grid[snake_grid_y][snake_grid_x][1] = 1
+                grid[snake_grid_y][snake_grid_x] = 2
 
-        return flat_grid_snake
+        # "encode" food in grid
+        food_grid_x = int(self.food.x/BLOCK_SIZE)-1
+        food_grid_y = int(self.food.y/BLOCK_SIZE)-1
+        # grid[food_grid_y][food_grid_x][Encode.FOOD_POS] = 1
+        # grid[food_grid_y][food_grid_x][2] = 1
+        grid[food_grid_y][food_grid_x] = 3
+
+        # # flatten grid_snake
+        # flat_grid_snake = [x for xs in grid for x in xs]
+
+        # return flat_grid_snake
+        return grid
 
     def _update_ui(self):
         self.display.fill(BLACK)
