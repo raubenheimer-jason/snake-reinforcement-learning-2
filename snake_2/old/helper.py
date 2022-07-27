@@ -18,12 +18,3 @@ def plot(scores, mean_scores):
     plt.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
     # plt.show(block=False, )
     plt.pause(.1)
-
-
-def plot_pix_grid(pix):
-    plt.clf()
-
-    plt.imshow(pix, cmap='hot', interpolation='nearest')
-    plt.pause(.1)
-
-    # plt.show()

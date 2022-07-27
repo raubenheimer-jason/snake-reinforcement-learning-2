@@ -4,7 +4,8 @@ import numpy as np
 from collections import deque  # store memories
 from game import SnakeGameAI, Direction, Point
 from model import Linear_QNet, QTrainer
-from helper import plot, plot_pix_grid
+# from model import ConvNet, CnnTrainer
+from helper import plot
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
@@ -21,7 +22,22 @@ class Agent:
         # if deque exceeds MAX_MEMORY it automatically calls popleft()
         self.memory = deque(maxlen=MAX_MEMORY)
         self.model = Linear_QNet(11, 256, 3)
+        # self.model = ConvNet()
+        # self.model = Linear_QNet(768, 256, 3)
+        # self.model = Linear_QNet(768, 1024, 3)
+        # self.model = Linear_QNet(779, 1024, 3)  # 11 + 768 inputs
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+        # self.trainer = CnnTrainer(self.model, lr=LR, gamma=self.gamma)
+
+        # grid where every block is 0 except where snake body is
+        self.grid_2d_arr = [[]]
+
+    # def get_grid(self, game):
+    #     grid_state = game.get_grid_state()
+
+    #     # # flatten grid_state
+    #     flat_grid_state = [x for xs in grid_state for x in xs]
+    #     return flat_grid_state
 
     def get_state(self, game):
         head = game.snake[0]
@@ -68,6 +84,12 @@ class Agent:
             game.food.y > game.head.y  # food down
         ]
 
+        # information about location of snake body
+        # we dont know the snake length so just add information about entire grid state
+        # and whether block contains snake body or not...
+        # for 640/20 x 480/20 grid size we are adding (32x24=768) states
+        # state += game.get_flat_grid_snake()
+
         return np.array(state, dtype=int)
 
     def remember(self, state, action, reward, next_state, done):
@@ -96,16 +118,32 @@ class Agent:
         # in the beginning you want more random moves
         # the better the model gets the more you want to use (and exploit) the model
 
-        # self.epsilon = 80 - self.n_gmaes
         self.epsilon = 80 - self.n_gmaes
         final_move = [0, 0, 0]
         if random.randint(0, 200) < self.epsilon:
-            # if random.randint(0, 600) < self.epsilon:
             move = random.randint(0, 2)  # 2 inclusive (0, 1, or 2)
             final_move[move] = 1
         else:
             state0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state0)
+            move = torch.argmax(prediction).item()
+            final_move[move] = 1
+
+        return final_move
+
+    def get_action_cnn(self, grid_state):
+        # random moves: tradeoff between exploration and exploitation
+        # in the beginning you want more random moves
+        # the better the model gets the more you want to use (and exploit) the model
+
+        self.epsilon = 80 - self.n_gmaes
+        final_move = [0, 0, 0]
+        if random.randint(0, 200) < self.epsilon:
+            move = random.randint(0, 2)  # 2 inclusive (0, 1, or 2)
+            final_move[move] = 1
+        else:
+            grid_state0 = torch.tensor(grid_state, dtype=torch.float)
+            prediction = self.model(grid_state0)
             move = torch.argmax(prediction).item()
             final_move[move] = 1
 
@@ -124,25 +162,28 @@ def train():
 
         # get old state
         state_old = agent.get_state(game)
+        # cnn
+        # get_grid_old = agent.get_grid(game)
 
         # get move
         final_move = agent.get_action(state_old)
+        # final_move = agent.get_action_cnn(get_grid_old)
 
         # perform move and get new state
         reward, done, score = game.play_step(final_move)
         state_new = agent.get_state(game)
+        # cnn
+        # get_grid_new = agent.get_grid(game)
 
         # train short memory
         agent.train_short_memory(
             state_old, final_move, reward, state_new, done)
+        # agent.train_short_memory(
+        #     get_grid_old, final_move, reward, get_grid_new, done)
 
         # remember
         agent.remember(state_old, final_move, reward, state_new, done)
-
-        # get pixels
-        # pix = game.get_pix()
-        # plot_pix_grid(pix)
-        # print(pix)
+        # agent.remember(get_grid_old, final_move, reward, get_grid_new, done)
 
         if done:
             # train long memory (replay memory / experience replay)
